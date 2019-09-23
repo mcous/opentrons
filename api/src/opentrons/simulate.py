@@ -11,12 +11,11 @@ import queue
 from typing import Any, List, Mapping, TextIO
 
 import opentrons
-import opentrons.legacy_api.protocols
 import opentrons.commands
 import opentrons.broker
+from opentrons.config import feature_flags
 from opentrons.protocols import parse
 from opentrons.protocols.types import JsonProtocol
-import opentrons.protocol_api.execute
 
 
 class AccumulatingHandler(logging.Handler):
@@ -146,7 +145,8 @@ def simulate(protocol_file: TextIO,
     contents = protocol_file.read()
     protocol = parse.parse(contents, protocol_file.name)
 
-    if opentrons.config.feature_flags.use_protocol_api_v2():
+    if feature_flags.use_protocol_api_v2():
+        import opentrons.protocol_api.execute
         context = opentrons.protocol_api.contexts.ProtocolContext()
         context.home()
         scraper = CommandScraper(stack_logger, log_level, context.broker)
@@ -154,6 +154,7 @@ def simulate(protocol_file: TextIO,
                                                     simulate=True,
                                                     context=context)
     else:
+        import opentrons.legacy_api.protocols
         opentrons.robot.disconnect()
         scraper = CommandScraper(stack_logger, log_level,
                                  opentrons.robot.broker)

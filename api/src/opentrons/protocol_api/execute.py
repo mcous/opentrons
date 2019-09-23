@@ -4,8 +4,9 @@ import traceback
 import sys
 from typing import Any, Callable
 
+import opentrons
 from .contexts import ProtocolContext
-from . import execute_v1, execute_v3
+from . import execute_v1, execute_v3, back_compat
 from opentrons import config
 from opentrons.protocols.types import PythonProtocol, Protocol
 
@@ -112,6 +113,9 @@ def _run_python(
 def _run_python_legacy(proto: PythonProtocol, context: ProtocolContext):
     new_locs = locals()
     new_globs = globals()
+    namespace_mapping = back_compat.build_globals()
+    for key, value in namespace_mapping.items():
+        setattr(opentrons, key, value)
     try:
         exec(proto.contents, new_globs, new_locs)
     except Exception as e:
@@ -122,6 +126,9 @@ def _run_python_legacy(proto: PythonProtocol, context: ProtocolContext):
             # No pretty names, just raise it
             raise e
         raise ExceptionInProtocolError(e, tb, str(e), frame.lineno)
+    finally:
+        for key in namespace_mapping.keys():
+            delattr(opentrons, key)
 
 
 def run_protocol(protocol: Protocol,
