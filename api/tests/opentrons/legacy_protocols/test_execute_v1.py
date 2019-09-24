@@ -1,10 +1,11 @@
-from opentrons import robot, labware, instruments
 from opentrons.protocols.parse import parse
-from opentrons.legacy_api.protocols import execute_v1, execute_protocol
 # TODO: Modify all calls to get a Well to use the `wells` method
+import pytest
 
 
-def test_load_pipettes():
+@pytest.mark.api1_only
+def test_load_pipettes(robot):
+    from opentrons.legacy_api.protocols import execute_v1
     # TODO Ian 2018-11-07 when `model` is dropped, delete its test case
     test_cases = [
         # deprecated case
@@ -40,9 +41,9 @@ def test_load_pipettes():
         assert pipette == loaded_pipettes['leftPipetteHere']
 
 
-def test_get_location():
-    robot.reset()
-
+@pytest.mark.api1_only
+def test_get_location(labware):
+    from opentrons.legacy_api.protocols import execute_v1
     command_type = 'aspirate'
     plate = labware.load("96-flat", 1)
     well = "B2"
@@ -78,8 +79,9 @@ def test_get_location():
         default_values['aspirate-mm-from-bottom'])
 
 
-def test_load_labware():
-    robot.reset()
+@pytest.mark.api1_only
+def test_load_labware(robot):
+    from opentrons.legacy_api.protocols import execute_v1
     data = {
         "labware": {
             "sourcePlateId": {
@@ -101,8 +103,9 @@ def test_load_labware():
     assert loaded_labware['destPlateId'] in robot.deck['11']
 
 
-def test_load_labware_trash():
-    robot.reset()
+@pytest.mark.api1_only
+def test_load_labware_trash(robot):
+    from opentrons.legacy_api.protocols import execute_v1
     data = {
         "labware": {
             "someTrashId": {
@@ -116,8 +119,9 @@ def test_load_labware_trash():
     assert result['someTrashId'] == robot.fixed_trash
 
 
-def test_dispatch_commands(monkeypatch):
-    robot.reset()
+@pytest.mark.api1_only
+def test_dispatch_commands(monkeypatch, robot, instruments, labware):
+    from opentrons.legacy_api.protocols import execute_v1
     cmd = []
     flow_rates = []
 
@@ -215,8 +219,9 @@ def test_dispatch_commands(monkeypatch):
     ]
 
 
-def test_legacy_jsonprotocol_v1(get_json_protocol_fixture):
-    robot.reset()
+@pytest.mark.api1_only
+def test_legacy_jsonprotocol_v1(get_json_protocol_fixture, robot):
+    from opentrons.legacy_api.protocols import execute_protocol
     protocol_data = get_json_protocol_fixture('1', 'simple', False)
     protocol = parse(protocol_data, None)
     execute_protocol(protocol)

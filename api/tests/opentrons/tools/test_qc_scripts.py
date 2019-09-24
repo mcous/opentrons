@@ -1,5 +1,4 @@
 import pytest
-from opentrons import tools, robot
 
 pipette_barcode_to_model = {
     'P10S20180101A01': 'p10_single_v1',
@@ -27,7 +26,8 @@ pipette_barcode_to_model = {
 
 
 @pytest.fixture
-def driver_import(monkeypatch):
+def driver_import(monkeypatch, robot):
+    from opentrons import tools
     monkeypatch.setattr(tools, 'driver', robot._driver)
 
 
