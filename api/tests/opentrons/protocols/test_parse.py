@@ -237,7 +237,8 @@ def test_extra_contents(
         'fixture/fixture_96_plate/1': fixture_96_plate
     }
     extra_data = {'hi': b'there'}
-    parsed = parse(protocol, 'testosaur.py', extra_labware=bundled_labware,
+    parsed = parse(protocol.text, 'testosaur.py',
+                   extra_labware=bundled_labware,
                    extra_data=extra_data)
     assert parsed.extra_labware == bundled_labware
     assert parsed.bundled_data == extra_data

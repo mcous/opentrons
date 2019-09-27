@@ -9,9 +9,9 @@ import argparse
 import sys
 import logging
 import os
-
+import pathlib
 import queue
-from typing import Any, Dict, List, Mapping, TextIO, BinaryIO, Optional
+from typing import Any, Dict, List, Mapping, TextIO, Tuple, BinaryIO, Optional
 
 
 import opentrons
@@ -125,8 +125,8 @@ def simulate(protocol_file: TextIO,
              custom_labware_paths=None,
              custom_data_paths=None,
              propagate_logs=False,
-             log_level='warning',
-             bundle_dest: BinaryIO = None) -> List[Mapping[str, Any]]:
+             log_level='warning') -> Tuple[List[Mapping[str, Any]],
+                                           Optional[BundleContents]]:
     """
     Simulate the protocol itself.
 
@@ -179,10 +179,10 @@ def simulate(protocol_file: TextIO,
     :param log_level: The level of logs to capture in the runlog. Default:
                       ``'warning'``
     :type log_level: 'debug', 'info', 'warning', or 'error'
-    :param bundle_dest: A writable binary IO wrapper to write a bundle in. If
-                        not specified nothing is bundled. If specified but not
-                        writable, an exception is raised.
-    :returns List[Dict[str, Dict[str, Any]]]: A run log for user output.
+    :returns: A tuple of a run log for user output, and possibly the required
+              data to write to a bundle to bundle this protocol. The bundle is
+              only emitted if the API v2 feature flag is set and this is an
+              unbundled python protocol. In other cases it is None.
     """
     stack_logger = logging.getLogger('opentrons')
     stack_logger.propagate = propagate_logs
@@ -208,11 +208,12 @@ def simulate(protocol_file: TextIO,
         execute.run_protocol(protocol,
                              simulate=True,
                              context=context)
-        if bundle_dest:
-            if isinstance(protocol, PythonProtocol)\
-               and protocol.bundled_labware is not None:
-                bundle_files = bundle_from_sim(protocol, context)
-                bundle.create_bundle(bundle_files, bundle_dest)
+        if isinstance(protocol, PythonProtocol)\
+           and protocol.bundled_labware is None:
+            bundle_contents: Optional[BundleContents] = bundle_from_sim(
+                protocol, context)
+        else:
+            bundle_contents = None
     else:
         opentrons.robot.disconnect()
         scraper = CommandScraper(stack_logger, log_level,
@@ -221,8 +222,9 @@ def simulate(protocol_file: TextIO,
             opentrons.legacy_api.protocols.execute_protocol(protocol)
         else:
             exec(protocol.contents, {})
+        bundle_contents = None
 
-    return scraper.commands
+    return scraper.commands, bundle_contents
 
 
 def format_runlog(runlog: List[Mapping[str, Any]]) -> str:
@@ -291,8 +293,8 @@ def _get_bundle_args(
              'it all the custom labware and data required to run. Without a '
              'value specified in this argument, the bundle will be called '
              '(protocol name without the .py).ot2.zip, but you can specify '
-             'a different output name. These bundles are a beta feature, and '
-             'their behavior may change.')
+             'a different output name. \n'
+             'These bundles are a beta feature, and their behavior may change')
     return parser
 
 
@@ -323,7 +325,37 @@ def get_arguments(
         help='The protocol file to simulate. If you pass \'-\', you can pipe '
         'the protocol via stdin; this could be useful if you want to use this '
         'utility as part of an automated workflow.')
+    parser.add_argument(
+        '-v', '--version', action='version',
+        version=f'%(prog)s {opentrons.__version__}',
+        help='Print the opentrons package version and exit')
+    parser.add_argument(
+        '-o', '--output', action='store',
+        help='What to output during simulations',
+        choices=['runlog', 'nothing'],
+        default='runlog')
     return parser
+
+
+def _get_bundle_dest(
+        bundle_name: Optional[str],
+        default_key: str,
+        proto_name: str) -> Optional[BinaryIO]:
+    if bundle_name == default_key:
+        protopath = pathlib.Path(proto_name)
+        # strip all the suffixes since protocols are often named
+        # .ot2.zip
+        if protopath.name.endswith('.ot2.py'):
+            protoname = pathlib.Path(protopath.stem).stem
+        else:
+            protoname = protopath.stem
+        bundle_name = (pathlib.Path.cwd() / protoname)\
+            .with_suffix('.ot2.zip')
+        return open(bundle_name, 'wb')
+    elif bundle_name:
+        return open(bundle_name, 'wb')
+    else:
+        return None
 
 
 # Note - this script is also set up as a setuptools entrypoint and thus does
@@ -334,35 +366,31 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog='opentrons_simulate',
                                      description='Simulate an OT-2 protocol')
     parser = get_arguments(parser)
-    # don't want to add this in get_arguments because if somebody upstream is
-    # using that parser they probably want their own version
-    parser.add_argument(
-        '-v', '--version', action='version',
-        version=f'%(prog)s {opentrons.__version__}',
-        help='Print the opentrons package version and exit')
-    parser.add_argument(
-        '-o', '--output', action='store',
-        help='What to output during simulations',
-        choices=['runlog', 'nothing'],
-        default='runlog')
 
     args = parser.parse_args()
-
-    bundle = getattr(args, 'bundle', None)
-    if bundle:
-        bundle_dest: Optional[BinaryIO] = open(bundle, 'wb')
-    else:
-        bundle_dest = None
-
-    runlog = simulate(
+    runlog, maybe_bundle = simulate(
         args.protocol,
         getattr(args, 'custom_labware_path', []),
         getattr(args, 'custom_data_path', [])
         + getattr(args, 'custom_data_files', []),
-        log_level=args.log_level,
-        bundle_dest=bundle_dest)
+        log_level=args.log_level)
+
+    if maybe_bundle:
+        bundle_name = getattr(args, 'bundle', None)
+        if bundle_name == args.protocol.name:
+            raise RuntimeError(
+                'Bundle path and input path must be different')
+        bundle_dest = _get_bundle_dest(
+            bundle_name, 'PROTOCOL.ot2.zip', args.protocol.name)
+    else:
+        bundle_dest = None
+
+    if bundle_dest:
+        bundle.create_bundle(maybe_bundle, bundle_dest)
+
     if args.output == 'runlog':
         print(format_runlog(runlog))
+
     return 0
 
 
