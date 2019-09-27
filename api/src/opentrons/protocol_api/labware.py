@@ -19,7 +19,9 @@ from collections import defaultdict
 from enum import Enum, auto
 from hashlib import sha256
 from itertools import takewhile, dropwhile
-from typing import Any, List, Dict, Optional, Union, Tuple
+from typing import Any, AnyStr, List, Dict, Optional, Union, Tuple
+
+import jsonschema  # type: ignore
 
 from opentrons.types import Location
 from opentrons.types import Point
@@ -1047,6 +1049,30 @@ def get_labware_definition_from_bundle(
             f'namespace {namespace}, and version {version}.')
 
 
+def verify_definition(contents: AnyStr) -> Dict[str, Any]:
+    """ Verify that an input string is a labware definition and return it.
+
+    If the definition is invalid, an exception is raised; otherwise parse the
+    json and return the valid definition.
+
+    :raises json.JsonDecodeError: If the definition is not valid json
+    :raises jsonschema.ValidationError: If the definition is not valid.
+    :returns: The parsed definition
+    """
+    loaded = json.loads(contents)
+    schema_body = pkgutil.get_data(  # type: ignore
+        'opentrons',
+        'shared_data/labware/schemas/2.json').decode('utf-8')
+    labware_schema_v2 = json.loads(schema_body)
+    resolver = jsonschema.RefResolver(
+        labware_schema_v2.get('$id', ''),
+        labware_schema_v2,
+        store={})
+    # do the validation
+    jsonschema.validate(loaded, labware_schema_v2, resolver=resolver)
+    return loaded
+
+
 def get_labware_definition(
     load_name: str,
     namespace: str = None,
@@ -1246,33 +1272,35 @@ def filter_tipracks_to_start(
         lambda tr: starting_point.parent is not tr, tipracks))
 
 
-def uri_from_details(namespace: str, load_name: str, version: str) -> str:
+def uri_from_details(namespace: str, load_name: str, version: str,
+                     delimiter='/') -> str:
     """ Build a labware URI from its details.
 
     A labware URI is a string that uniquely specifies a labware definition.
 
     :returns str: The URI.
     """
-    return f'{namespace}/{load_name}/{version}'
+    return f'{namespace}{delimiter}{load_name}{delimiter}{version}'
 
 
-def details_from_uri(uri: str) -> Tuple[str, str, str]:
+def details_from_uri(uri: str, delimiter='/') -> Tuple[str, str, str]:
     """ Parse a labware URI and return the details.
 
     :returns: A tuple of (namespace, load name, version)
     """
-    namespace, loadname, version = uri.split('/')
+    namespace, loadname, version = uri.split(delimiter)
     return namespace, loadname, version
 
 
-def uri_from_definition(definition: Dict[str, Any]) -> str:
+def uri_from_definition(definition: Dict[str, Any], delimiter='/') -> str:
     """ Build a labware URI from its definition.
 
     A labware URI is a string that uniquely specifies a labware definition.
 
     :returns str: The URI.
     """
-    return '{namespace}/{loadname}/{version}'.format(
+    return '{namespace}{delim}{loadname}{delim}{version}'.format(
         namespace=definition['namespace'],
+        delim=delimiter,
         loadname=definition['parameters']['loadName'],
         version=definition['version'])

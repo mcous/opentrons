@@ -93,12 +93,32 @@ class ProtocolContext(CommandPublisher):
                  hardware: hc.API = None,
                  broker=None,
                  bundled_labware: Dict[str, Dict[str, Any]] = None,
-                 bundled_data: Dict[str, bytes] = None
+                 bundled_data: Dict[str, bytes] = None,
+                 extra_labware: Dict[str, Dict[str, Any]] = None
                  ) -> None:
         """ Build a :py:class:`.ProtocolContext`.
 
         :param loop: An event loop to use. If not specified, this ctor will
                      (eventually) call :py:meth:`asyncio.get_event_loop`.
+        :param hardware: An optional hardware controller to link to. If not
+                         specified, a new simulator will be created.
+        :param broker: An optional command broker to link to. If not
+                      specified, a dummy one is used.
+        :param bundled_labware: A dict mapping labware URIs to definitions.
+                                This is used when executing bundled protocols,
+                                and if specified will be the only allowed
+                                source for labware definitions, excluding the
+                                built in definitions and anything in
+                                ``extra_labware``.
+        :param bundled_data: A dict mapping filenames to the contents of data
+                             files. Can be used by the protocol, since it is
+                             exposed as
+                             :py:attr:`.ProtocolContext.bundled_data`
+        :param extra_labware: A dict mapping labware URIs to definitions. These
+                              URIs are searched during :py:meth:`.load_labware`
+                              in addition to the system definitions (if
+                              ``bundled_labware`` was not specified). Used to
+                              provide custom labware definitions.
         """
         super().__init__(broker)
         self._loop = loop or asyncio.get_event_loop()
@@ -116,14 +136,30 @@ class ProtocolContext(CommandPublisher):
         self.clear_commands()
 
         self._bundled_labware = bundled_labware
-        self.bundled_data = bundled_data
+        self._extra_labware = extra_labware or {}
+        self.bundled_data = bundled_data or {}
+        self._load_trash()
 
+    def _load_trash(self):
         if fflags.short_fixed_trash():
             trash_name = 'opentrons_1_trash_850ml_fixed'
         else:
             trash_name = 'opentrons_1_trash_1100ml_fixed'
-
+        if self.deck['12']:
+            del self.deck['12']
         self.load_labware(trash_name, '12')
+
+    def set_bundle_contents(self,
+                            bundled_labware: Dict[str, Dict[str, Any]] = None,
+                            bundled_data: Dict[str, bytes] = None,
+                            extra_labware: Dict[str, Dict[str, Any]] = None):
+        """ Specify bundle contents after the context is created. Replaces the
+        old values.
+        """
+        self._bundled_labware = bundled_labware
+        self._extra_labware = extra_labware or {}
+        self.bundled_data = bundled_data or {}
+        self._load_trash()
 
     def __del__(self):
         if getattr(self, '_unsubscribe_commands', None):
@@ -246,8 +282,12 @@ class ProtocolContext(CommandPublisher):
         else:
             if version is None:
                 version = 1
-            labware_def = get_labware_definition(
-                load_name, namespace, version)
+            try:
+                labware_def = get_labware_definition_from_bundle(
+                    self._extra_labware, load_name, namespace, version)
+            except RuntimeError:
+                labware_def = get_labware_definition(
+                    load_name, namespace, version)
         return self.load_labware_from_definition(labware_def, location, label)
 
     def load_labware_by_name(
