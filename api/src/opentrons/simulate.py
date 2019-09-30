@@ -349,8 +349,8 @@ def _get_bundle_dest(
             protoname = pathlib.Path(protopath.stem).stem
         else:
             protoname = protopath.stem
-        bundle_name = (pathlib.Path.cwd() / protoname)\
-            .with_suffix('.ot2.zip')
+        bundle_name = str((pathlib.Path.cwd() / protoname)
+                          .with_suffix('.ot2.zip'))
         return open(bundle_name, 'wb')
     elif bundle_name:
         return open(bundle_name, 'wb')
@@ -382,11 +382,8 @@ def main() -> int:
                 'Bundle path and input path must be different')
         bundle_dest = _get_bundle_dest(
             bundle_name, 'PROTOCOL.ot2.zip', args.protocol.name)
-    else:
-        bundle_dest = None
-
-    if bundle_dest:
-        bundle.create_bundle(maybe_bundle, bundle_dest)
+        if bundle_dest:
+            bundle.create_bundle(maybe_bundle, bundle_dest)
 
     if args.output == 'runlog':
         print(format_runlog(runlog))
