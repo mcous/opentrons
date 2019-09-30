@@ -104,7 +104,7 @@ To access a labware definition inside a bundle, use :py:meth:`.ProtocolContext.l
 Accessing Custom Data
 +++++++++++++++++++++
 
-Custom data files are made available in :py:attr:`.ProtocolContext.bundled_data`. This is a dictionary mapping the names of data files (without any paths) to their contents, as bytes. These can then be read in whatever format you need.
+Custom data files are made available in :py:attr:`.ProtocolContext.bundled_data`. This is a dictionary mapping the names of data files (without any paths) to their contents, as bytes. If you need the contents of the files as strings, you must decode them with ``.decode('utf-8')`` (the files are presented in bytes in case they are not text, for instance if they are images or zip files). These can then be read in whatever format you need.
 
 For instance, if a CSV file called ``aspirations.csv`` is bundled, you can do:
 
@@ -112,7 +112,7 @@ For instance, if a CSV file called ``aspirations.csv`` is bundled, you can do:
 
     import csv
     def run(ctx):
-        aspirations_contents = ctx.bundled_data['aspirations.csv']
+        aspirations_contents = ctx.bundled_data['aspirations.csv'].decode('utf-8')
         print(aspirations_contents)  # prints contents when simulated
 
 

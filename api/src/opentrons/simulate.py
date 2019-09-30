@@ -143,7 +143,10 @@ def simulate(protocol_file: TextIO,
     ``python -m opentrons.simulate``.
 
     The return value is the run log, a list of dicts that represent the
-    commands executed by the robot. Each dict has the following keys:
+    commands executed by the robot; and either the contents of the protocol
+    that would be required to bundle, or ``None``.
+
+    Each dict element in the run log has the following keys:
 
         - ``level``: The depth at which this command is nested - if this an
                      aspirate inside a mix inside a transfer, for instance,
@@ -256,9 +259,10 @@ def _get_bundle_args(
         help='Specify directories to search for custom labware definitions. '
              'You can specify this argument multiple times. Once you specify '
              'a directory in this way, labware definitions in that directory '
-             'will become available in ProtocolContext.load_labware(). Note '
-             'that bundle execution will still only allow labware defined in '
-             'the bundle.')
+             'will become available in ProtocolContext.load_labware(). '
+             'Bundle execution will still only allow labware defined in '
+             'the bundle. Only directories specified directly by '
+             'this argument are searched, not their children.')
     parser.add_argument(
         '-D', '--custom-data-path',
         action='append', nargs='?', const='.', default=[],
@@ -372,7 +376,7 @@ def main() -> int:
         args.protocol,
         getattr(args, 'custom_labware_path', []),
         getattr(args, 'custom_data_path', [])
-        + getattr(args, 'custom_data_files', []),
+        + getattr(args, 'custom_data_file', []),
         log_level=args.log_level)
 
     if maybe_bundle:

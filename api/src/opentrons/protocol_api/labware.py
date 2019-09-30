@@ -1064,12 +1064,8 @@ def verify_definition(contents: AnyStr) -> Dict[str, Any]:
         'opentrons',
         'shared_data/labware/schemas/2.json').decode('utf-8')
     labware_schema_v2 = json.loads(schema_body)
-    resolver = jsonschema.RefResolver(
-        labware_schema_v2.get('$id', ''),
-        labware_schema_v2,
-        store={})
     # do the validation
-    jsonschema.validate(loaded, labware_schema_v2, resolver=resolver)
+    jsonschema.validate(loaded, labware_schema_v2)
     return loaded
 
 
@@ -1283,15 +1279,6 @@ def uri_from_details(namespace: str, load_name: str, version: str,
     return f'{namespace}{delimiter}{load_name}{delimiter}{version}'
 
 
-def details_from_uri(uri: str, delimiter='/') -> Tuple[str, str, str]:
-    """ Parse a labware URI and return the details.
-
-    :returns: A tuple of (namespace, load name, version)
-    """
-    namespace, loadname, version = uri.split(delimiter)
-    return namespace, loadname, version
-
-
 def uri_from_definition(definition: Dict[str, Any], delimiter='/') -> str:
     """ Build a labware URI from its definition.
 
@@ -1299,8 +1286,6 @@ def uri_from_definition(definition: Dict[str, Any], delimiter='/') -> str:
 
     :returns str: The URI.
     """
-    return '{namespace}{delim}{loadname}{delim}{version}'.format(
-        namespace=definition['namespace'],
-        delim=delimiter,
-        loadname=definition['parameters']['loadName'],
-        version=definition['version'])
+    return uri_from_details(definition['namespace'],
+                            definition['parameters']['loadName'],
+                            definition['version'])

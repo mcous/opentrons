@@ -23,12 +23,14 @@ def labware_from_paths(paths: List[str]) -> Dict[str, Dict[str, Any]]:
         else:
             path = pathlib.Path.cwd() / purepath
         if not path.is_dir():
-            continue
+            raise RuntimeError(f'{path} is not a directory')
         for child in path.iterdir():
             if child.is_file() and child.suffix.endswith('json'):
                 try:
                     defn = labware.verify_definition(child.read_bytes())
                 except (ValidationError, JSONDecodeError) as e:
+                    import pdb; pdb.set_trace()
+                    print(f'{child}: invalid ({str(e)})')
                     log.info(f"{child}: invalid ({str(e)})")
                 else:
                     uri = labware.uri_from_definition(defn)
