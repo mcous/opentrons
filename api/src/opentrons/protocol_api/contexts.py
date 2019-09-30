@@ -171,7 +171,7 @@ class ProtocolContext(CommandPublisher):
         """
         self._bundled_labware = bundled_labware
         self._extra_labware = extra_labware or {}
-        self.bundled_data = bundled_data or {}
+        self._bundled_data = bundled_data or {}
         self._load_trash()
 
     def __del__(self):
