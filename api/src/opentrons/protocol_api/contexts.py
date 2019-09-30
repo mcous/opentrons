@@ -137,7 +137,9 @@ class ProtocolContext(CommandPublisher):
 
         self._bundled_labware = bundled_labware
         self._extra_labware = extra_labware or {}
-        self.bundled_data = bundled_data or {}
+
+        self._bundled_data: Dict[str, bytes] = bundled_data or {}
+
         self._load_trash()
 
     def _load_trash(self):
@@ -148,6 +150,17 @@ class ProtocolContext(CommandPublisher):
         if self.deck['12']:
             del self.deck['12']
         self.load_labware(trash_name, '12')
+
+    @property
+    def bundled_data(self) -> Dict[str, bytes]:
+        """ Accessor for data files bundled with this protocol, if any.
+
+        This is a dictionary mapping the filenames of bundled datafiles, with
+        extensions but without paths (e.g. if a file is stored in the bundle as
+        ``data/mydata/aspirations.csv`` it will be in the dict as
+        ``'aspirations.csv'``) to the bytes contents of the files.
+        """
+        return self._bundled_data
 
     def set_bundle_contents(self,
                             bundled_labware: Dict[str, Dict[str, Any]] = None,
