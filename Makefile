@@ -148,3 +148,8 @@ coverage:
 bump:
 	@echo "Bumping versions"
 	lerna version $(or $(version),prerelease)
+
+.PHONY: write-versions
+write-versions:
+	$(if $(CI),@echo "Updating package.json versions from git tags)",$(error not running on CI))
+	node scripts/bump/write-versions.js
