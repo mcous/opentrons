@@ -1,0 +1,9 @@
+name: 'Create Release Branch'
+description: 'Greet the release branch for a new release'
+inputs:
+outputs:
+  branch:
+    description: 'Name of the created branch'
+runs:
+  using: 'node12'
+  main: 'index.js'

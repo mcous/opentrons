@@ -1,0 +1,9 @@
+name: 'Create Release Notes Branch'
+description: 'Create a release notes branch for a new release'
+inputs:
+outputs:
+  branch: # id of output
+    description: 'Name of the created branch'
+runs:
+  using: 'node12'
+  main: 'index.js'
